@@ -8,6 +8,7 @@ Built on Apple's `SpeechAnalyzer` / `SpeechTranscriber` (macOS 26 / iOS 26). Acc
 
 - 🎯 **Simple API** — transcribe with a single async call
 - 🎙️ **On-device** — Apple `SpeechAnalyzer`, completely free, no data leaves the machine
+- 🧠 **Two engines, one API** — Apple `SpeechAnalyzer` (fastest, zero-dependency) **or** Whisper via WhisperKit (accuracy + 100 languages); both return the same `Transcript`
 - 🔗 **Audio or video** — local files or remote URLs; video audio tracks are extracted automatically
 - 🔴 **Live streaming** — feed microphone or system audio and get interim + final captions in real time
 - ⏱️ **Timestamped segments** — sentence-level (or word-level) timing for every line
@@ -18,7 +19,7 @@ Built on Apple's `SpeechAnalyzer` / `SpeechTranscriber` (macOS 26 / iOS 26). Acc
 - 📊 **Progress reporting** — real-time callbacks for UI integration
 - 🔒 **Sandbox-friendly** — temp files only, no security-scoped grants required
 - 🍎 **Cross-platform** — macOS 26+, iOS 26+
-- 🔒 **Zero dependencies** — Speech + AVFoundation only
+- 🔒 **Zero dependencies (Apple engine)** — the `SpeechTranscriber` product uses only Speech + AVFoundation; WhisperKit is an opt-in second product
 
 ## Requirements
 
@@ -38,7 +39,10 @@ dependencies: [
 ]
 ```
 
-Add `SpeechTranscriber` to your target's dependencies.
+The package vends **two library products** — depend on whichever engine(s) you need:
+
+- **`SpeechTranscriber`** — the Apple `SpeechAnalyzer` engine. **Zero dependencies.**
+- **`WhisperTranscriber`** — the Whisper engine (pulls in WhisperKit). Returns the same `Transcript` type.
 
 ## Usage
 
@@ -56,6 +60,38 @@ print(transcript.plainText)
 // Timestamped, one segment per line
 for segment in transcript.segments {
     print("[\(segment.formattedStart)] \(segment.text)")
+}
+```
+
+### Whisper Engine (optional)
+
+Same call shape, same `Transcript` out — swap the engine when you want Whisper's
+accuracy and 100-language coverage. Models download from Hugging Face on first
+use and are cached. Use this as the "engine" toggle in your app's settings.
+
+```swift
+import WhisperTranscriber
+
+let transcript = try await WhisperTranscriber.transcribe(
+    audioURL: url,
+    model: .largeV3Turbo,   // .auto picks per device; .tiny … .largeV3
+    language: nil           // nil = auto-detect, or "en", "de", …
+)
+
+print(transcript.plainText)
+let srt = transcript.srt    // same export helpers as the Apple engine
+```
+
+A typical settings-driven dispatch:
+
+```swift
+enum Engine { case apple, whisper }
+
+func transcribe(_ url: URL, using engine: Engine) async throws -> Transcript {
+    switch engine {
+    case .apple:   return try await SpeechTranscriber.transcribe(audioURL: url)
+    case .whisper: return try await WhisperTranscriber.transcribe(audioURL: url, model: .largeV3Turbo)
+    }
 }
 ```
 

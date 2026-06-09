@@ -10,15 +10,31 @@ let package = Package(
         .iOS(.v26)
     ],
     products: [
+        // Apple SpeechAnalyzer engine — zero external dependencies.
         .library(
             name: "SpeechTranscriber",
             targets: ["SpeechTranscriber"]
         ),
+        // Whisper engine (WhisperKit) — same Transcript types, opt-in dependency.
+        .library(
+            name: "WhisperTranscriber",
+            targets: ["WhisperTranscriber"]
+        ),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "1.0.0"),
     ],
     targets: [
         .target(
             name: "SpeechTranscriber",
             dependencies: []
+        ),
+        .target(
+            name: "WhisperTranscriber",
+            dependencies: [
+                "SpeechTranscriber",
+                .product(name: "WhisperKit", package: "argmax-oss-swift"),
+            ]
         ),
         .testTarget(
             name: "SpeechTranscriberTests",
