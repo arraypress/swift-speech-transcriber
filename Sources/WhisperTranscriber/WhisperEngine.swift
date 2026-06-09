@@ -68,7 +68,7 @@ enum WhisperEngine {
         var segmentId = 0
         for result in results {
             for segment in result.segments {
-                let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                let text = WhisperText.clean(segment.text)
                 guard !text.isEmpty else { continue }
                 segmentId += 1
                 segments.append(TranscriptSegment(

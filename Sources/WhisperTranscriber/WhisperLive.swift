@@ -69,7 +69,7 @@ public extension WhisperTranscriber {
                             let already = confirmedCount.value
                             if confirmed.count > already {
                                 for segment in confirmed[already...] {
-                                    let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    let text = WhisperText.clean(segment.text)
                                     guard !text.isEmpty else { continue }
                                     continuation.yield(LiveTranscriptionEvent(
                                         text: text,
@@ -81,7 +81,7 @@ public extension WhisperTranscriber {
                                 confirmedCount.value = confirmed.count
                             }
                             // Emit the rolling, still-changing text as a volatile event.
-                            let volatile = newState.currentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let volatile = WhisperText.clean(newState.currentText)
                             if !volatile.isEmpty {
                                 continuation.yield(LiveTranscriptionEvent(
                                     text: volatile, isFinal: false, start: nil, end: nil
