@@ -52,7 +52,41 @@ public enum WhisperModel: Sendable {
         case .small: return "small"
         case .medium: return "medium"
         case .largeV3: return "large-v3"
-        case .largeV3Turbo: return "large-v3-v20240930_turbo"
+        // The 632 MB quantized turbo: near-large-v3 accuracy at ~⅕ the size.
+        case .largeV3Turbo: return "large-v3-v20240930_turbo_632MB"
+        }
+    }
+
+    /// All selectable models (excluding ``auto``), for a settings picker.
+    public static var all: [WhisperModel] {
+        [.tiny, .base, .small, .medium, .largeV3Turbo, .largeV3]
+    }
+
+    /// A human-readable name for a model picker.
+    public var displayName: String {
+        switch self {
+        case .auto: return "Automatic"
+        case .tiny: return "Tiny"
+        case .base: return "Base"
+        case .small: return "Small"
+        case .medium: return "Medium"
+        case .largeV3: return "Large v3"
+        case .largeV3Turbo: return "Large v3 Turbo"
+        }
+    }
+
+    /// The approximate download size in megabytes, or `nil` for ``auto``.
+    ///
+    /// Show this next to each option so users know the cost before downloading.
+    public var approximateDownloadMB: Int? {
+        switch self {
+        case .auto: return nil
+        case .tiny: return 77
+        case .base: return 147
+        case .small: return 486
+        case .medium: return 1_530
+        case .largeV3Turbo: return 646
+        case .largeV3: return 3_090
         }
     }
 }
