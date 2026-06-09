@@ -9,10 +9,12 @@ Built on Apple's `SpeechAnalyzer` / `SpeechTranscriber` (macOS 26 / iOS 26). Acc
 - 🎯 **Simple API** — transcribe with a single async call
 - 🎙️ **On-device** — Apple `SpeechAnalyzer`, completely free, no data leaves the machine
 - 🔗 **Audio or video** — local files or remote URLs; video audio tracks are extracted automatically
+- 🔴 **Live streaming** — feed microphone or system audio and get interim + final captions in real time
 - ⏱️ **Timestamped segments** — sentence-level (or word-level) timing for every line
 - 💬 **Subtitle export** — SubRip (`.srt`) and WebVTT (`.vtt`) out of the box
 - 📦 **JSON export** — `snake_case` JSON, great for LLM input or storage
-- 🌍 **Any installed locale** — models download on demand, then run fully offline
+- 🌍 **Locale management** — discover supported/installed languages and pre-download models
+- 🎤 **Microphone helper** — built-in `MicrophoneCapture` for live transcription
 - 📊 **Progress reporting** — real-time callbacks for UI integration
 - 🔒 **Sandbox-friendly** — temp files only, no security-scoped grants required
 - 🍎 **Cross-platform** — macOS 26+, iOS 26+
@@ -86,6 +88,55 @@ let options = TranscriptionOptions(
     segmentation: .sentence               // .sentence (default) or .word
 )
 let transcript = try await SpeechTranscriber.transcribe(audioURL: url, options: options)
+```
+
+### Live Streaming
+
+Feed captured audio (microphone, system audio, or a file read in chunks) and
+receive interim (`isFinal == false`) and final captions as they're recognised:
+
+```swift
+let mic = try MicrophoneCapture()
+
+for try await event in SpeechTranscriber.transcribe(audioInput: mic.stream()) {
+    if event.isFinal {
+        transcript += event.text + " "
+    } else {
+        liveCaption = event.text   // updates rapidly as you speak
+    }
+}
+mic.stop()
+```
+
+Any source works — just yield `AudioInput` values into an `AsyncStream`:
+
+```swift
+let (stream, continuation) = AsyncStream<AudioInput>.makeStream()
+// ...from your own AVAudioEngine tap, ScreenCaptureKit, or file reads...
+continuation.yield(AudioInput(pcmBuffer))
+continuation.finish()
+
+for try await event in SpeechTranscriber.transcribe(audioInput: stream) { ... }
+```
+
+> Microphone access requires `NSMicrophoneUsageDescription` (and, on macOS, the
+> audio-input entitlement). The OS prompts on first use.
+
+### Locale Management
+
+Discover supported and installed languages, and pre-download a model so the
+first transcription doesn't pay the download cost:
+
+```swift
+let supported = await SpeechTranscriber.supportedLocales   // [Locale]
+let installed = await SpeechTranscriber.installedLocales
+
+if await SpeechTranscriber.isSupported(locale),
+   await !SpeechTranscriber.isInstalled(locale) {
+    try await SpeechTranscriber.prepare(locale: locale) { progress in
+        print(progress.statusText)
+    }
+}
 ```
 
 ### Subtitle Export

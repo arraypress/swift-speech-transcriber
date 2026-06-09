@@ -186,50 +186,18 @@ public enum SpeechTranscriber {
         progress: (@Sendable (TranscriptionProgress) -> Void)?
     ) async throws -> Transcript {
 
-        // MARK: Availability
+        // MARK: Prepare Transcriber
 
         guard isAvailable else {
             throw TranscriptionError.unavailable
         }
 
         let locale = options.locale
-
-        // MARK: Reserve Locale
-
-        for reserved in await AssetInventory.reservedLocales {
-            await AssetInventory.release(reservedLocale: reserved)
-        }
-
-        do {
-            try await AssetInventory.reserve(locale: locale)
-        } catch {
-            throw TranscriptionError.localeNotSupported(locale.identifier(.bcp47))
-        }
-
-        let transcriber = Speech.SpeechTranscriber(
+        let transcriber = try await makeTranscriber(
             locale: locale,
-            transcriptionOptions: [],
-            reportingOptions: [],
-            attributeOptions: [.audioTimeRange]
+            volatileResults: false,
+            progress: progress
         )
-
-        // MARK: Install Model
-
-        let installedLocales = await Speech.SpeechTranscriber.installedLocales
-        let isInstalled = installedLocales.contains {
-            $0.identifier(.bcp47) == locale.identifier(.bcp47)
-        }
-
-        if !isInstalled {
-            progress?(TranscriptionProgress(phase: .installingModel, fraction: 0))
-            do {
-                if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-                    try await request.downloadAndInstall()
-                }
-            } catch {
-                throw TranscriptionError.modelInstallationFailed(error.localizedDescription)
-            }
-        }
 
         // MARK: Load Audio
 
@@ -293,6 +261,58 @@ public enum SpeechTranscriber {
             transcriptionTime: transcriptionTime,
             localeIdentifier: locale.identifier(.bcp47)
         )
+    }
+
+    /// Reserves the locale, builds a configured `SpeechTranscriber`, and installs
+    /// its on-device model if it isn't already present.
+    ///
+    /// Shared by batch transcription, live streaming, and ``prepare(locale:progress:)``.
+    ///
+    /// - Parameters:
+    ///   - locale: The transcription locale.
+    ///   - volatileResults: When `true`, the transcriber also reports partial
+    ///     (volatile) results — used for live streaming captions.
+    ///   - progress: An optional progress callback for the model-install phase.
+    /// - Throws: ``TranscriptionError``.
+    /// - Returns: A configured, model-ready `Speech.SpeechTranscriber`.
+    static func makeTranscriber(
+        locale: Locale,
+        volatileResults: Bool,
+        progress: (@Sendable (TranscriptionProgress) -> Void)?
+    ) async throws -> Speech.SpeechTranscriber {
+
+        for reserved in await AssetInventory.reservedLocales {
+            await AssetInventory.release(reservedLocale: reserved)
+        }
+
+        do {
+            try await AssetInventory.reserve(locale: locale)
+        } catch {
+            throw TranscriptionError.localeNotSupported(locale.identifier(.bcp47))
+        }
+
+        let transcriber = Speech.SpeechTranscriber(
+            locale: locale,
+            transcriptionOptions: [],
+            reportingOptions: volatileResults ? [.volatileResults] : [],
+            attributeOptions: [.audioTimeRange]
+        )
+
+        let installed = await Speech.SpeechTranscriber.installedLocales
+        let isInstalled = installed.contains { $0.identifier(.bcp47) == locale.identifier(.bcp47) }
+
+        if !isInstalled {
+            progress?(TranscriptionProgress(phase: .installingModel, fraction: 0))
+            do {
+                if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                    try await request.downloadAndInstall()
+                }
+            } catch {
+                throw TranscriptionError.modelInstallationFailed(error.localizedDescription)
+            }
+        }
+
+        return transcriber
     }
 
     /// Splits one recognition result into timestamped segments and appends them.

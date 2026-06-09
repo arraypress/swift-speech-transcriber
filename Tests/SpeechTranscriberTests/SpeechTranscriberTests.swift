@@ -358,6 +358,82 @@ final class SpeechTranscriberTests: XCTestCase {
         )
     }
 
+    // MARK: - Locale Discovery
+
+    func testLocaleDiscoveryIsCallable() async {
+        let supported = await SpeechTranscriber.supportedLocales
+        let installed = await SpeechTranscriber.installedLocales
+
+        // Installed locales are a subset of supported; both must be reachable.
+        XCTAssertGreaterThanOrEqual(supported.count, installed.count)
+
+        if let first = supported.first {
+            let isSupported = await SpeechTranscriber.isSupported(first)
+            XCTAssertTrue(isSupported)
+        }
+        let nonsense = await SpeechTranscriber.isSupported(Locale(identifier: "zz-ZZ"))
+        XCTAssertFalse(nonsense)
+    }
+
+    // MARK: - Streaming (synthesize, feed as buffers, transcribe live)
+
+    func testStreamingRoundTrip() async throws {
+        guard SpeechTranscriber.isAvailable else {
+            print("Skipping streaming: on-device speech transcription not available")
+            return
+        }
+
+        let spoken = "The quick brown fox jumps over the lazy dog."
+        let audioURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("st-stream-\(UUID().uuidString).caf")
+        defer { try? FileManager.default.removeItem(at: audioURL) }
+
+        do {
+            try await withTimeout(seconds: 30) { try await Self.synthesize(spoken, to: audioURL) }
+        } catch {
+            print("Skipping streaming: speech synthesis unavailable (\(error))")
+            return
+        }
+
+        // Read the synthesized file into a stream of AudioInput chunks.
+        let file = try AVAudioFile(forReading: audioURL)
+        let format = file.processingFormat
+        let (stream, continuation) = AsyncStream<AudioInput>.makeStream()
+        let frameChunk: AVAudioFrameCount = 4096
+        while file.framePosition < file.length {
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameChunk) else { break }
+            try file.read(into: buffer)
+            if buffer.frameLength == 0 { break }
+            continuation.yield(AudioInput(buffer))
+        }
+        continuation.finish()
+
+        var finals: [String] = []
+        var sawVolatile = false
+        do {
+            for try await event in SpeechTranscriber.transcribe(audioInput: stream) {
+                if event.isFinal { finals.append(event.text) } else { sawVolatile = true }
+            }
+        } catch let error as TranscriptionError {
+            print("Skipping streaming: transcription unavailable (\(error.localizedDescription))")
+            return
+        }
+
+        let recognised = finals.joined(separator: " ").lowercased()
+        let keywords = ["quick", "brown", "fox", "lazy", "dog"]
+        let hits = keywords.filter { recognised.contains($0) }
+
+        print("\n=== STREAMING ===")
+        print("Final text:  \(recognised)")
+        print("Keyword hits: \(hits.count)/\(keywords.count); volatile events seen: \(sawVolatile)")
+        print("=================\n")
+
+        XCTAssertGreaterThanOrEqual(
+            hits.count, 3,
+            "Expected at least 3 keywords in the streamed transcript, got: \"\(recognised)\""
+        )
+    }
+
     /// Synthesises `text` to an audio file using `AVSpeechSynthesizer`.
     ///
     /// Drains the synthesizer's PCM buffers into an `AVAudioFile`, completing
