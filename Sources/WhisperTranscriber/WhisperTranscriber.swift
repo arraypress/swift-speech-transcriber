@@ -47,6 +47,7 @@ public enum WhisperTranscriber {
         audioURL: URL,
         model: WhisperModel = .auto,
         language: String? = nil,
+        translate: Bool = false,
         progress: (@Sendable (TranscriptionProgress) -> Void)? = nil
     ) async throws -> Transcript {
 
@@ -65,7 +66,7 @@ public enum WhisperTranscriber {
         }
         defer { if let temporaryURL { try? FileManager.default.removeItem(at: temporaryURL) } }
 
-        return try await WhisperEngine.run(localFile: localURL, model: model, language: language, progress: progress)
+        return try await WhisperEngine.run(localFile: localURL, model: model, language: language, translate: translate, progress: progress)
     }
 
     /// Transcribes the audio track of a local or remote video with Whisper.
@@ -81,6 +82,7 @@ public enum WhisperTranscriber {
         videoURL: URL,
         model: WhisperModel = .auto,
         language: String? = nil,
+        translate: Bool = false,
         progress: (@Sendable (TranscriptionProgress) -> Void)? = nil
     ) async throws -> Transcript {
 
@@ -93,6 +95,6 @@ public enum WhisperTranscriber {
         let audioURL = try await WhisperAudioSource.extractAudio(fromVideo: videoURL)
         defer { try? FileManager.default.removeItem(at: audioURL) }
 
-        return try await WhisperEngine.run(localFile: audioURL, model: model, language: language, progress: progress)
+        return try await WhisperEngine.run(localFile: audioURL, model: model, language: language, translate: translate, progress: progress)
     }
 }

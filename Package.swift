@@ -20,6 +20,11 @@ let package = Package(
             name: "WhisperTranscriber",
             targets: ["WhisperTranscriber"]
         ),
+        // Speaker diarization (SpeakerKit / pyannote) — labels who spoke when.
+        .library(
+            name: "Diarizer",
+            targets: ["Diarizer"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "1.0.0"),
@@ -34,6 +39,13 @@ let package = Package(
             dependencies: [
                 "SpeechTranscriber",
                 .product(name: "WhisperKit", package: "argmax-oss-swift"),
+            ]
+        ),
+        .target(
+            name: "Diarizer",
+            dependencies: [
+                "SpeechTranscriber",
+                .product(name: "SpeakerKit", package: "argmax-oss-swift"),
             ]
         ),
         .testTarget(

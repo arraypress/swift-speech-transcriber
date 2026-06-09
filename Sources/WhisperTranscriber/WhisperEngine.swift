@@ -17,26 +17,30 @@ import WhisperKit
 /// shared ``Transcript``.
 enum WhisperEngine {
 
+    /// Loads a WhisperKit pipeline for the given model, downloading on first use.
+    static func loadPipe(_ model: WhisperModel) async throws -> WhisperKit {
+        do {
+            if let modelName = model.modelName {
+                return try await WhisperKit(WhisperKitConfig(model: modelName))
+            }
+            return try await WhisperKit()
+        } catch {
+            throw TranscriptionError.modelInstallationFailed(error.localizedDescription)
+        }
+    }
+
     static func run(
         localFile url: URL,
         model: WhisperModel,
         language: String?,
+        translate: Bool,
         progress: (@Sendable (EngineProgress) -> Void)?
     ) async throws -> Transcript {
 
         // MARK: Load Model (downloads on first use)
 
         progress?(EngineProgress(phase: .installingModel, fraction: 0))
-        let pipe: WhisperKit
-        do {
-            if let modelName = model.modelName {
-                pipe = try await WhisperKit(WhisperKitConfig(model: modelName))
-            } else {
-                pipe = try await WhisperKit()
-            }
-        } catch {
-            throw TranscriptionError.modelInstallationFailed(error.localizedDescription)
-        }
+        let pipe = try await loadPipe(model)
 
         // MARK: Audio Duration
 
@@ -52,6 +56,7 @@ enum WhisperEngine {
         do {
             var options = DecodingOptions()
             options.language = language
+            if translate { options.task = .translate }
             results = try await pipe.transcribe(audioPath: url.path, decodeOptions: options)
         } catch {
             throw TranscriptionError.transcriptionFailed(error.localizedDescription)

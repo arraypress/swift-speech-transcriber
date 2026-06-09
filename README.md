@@ -10,7 +10,9 @@ Built on Apple's `SpeechAnalyzer` / `SpeechTranscriber` (macOS 26 / iOS 26). Acc
 - 🎙️ **On-device** — Apple `SpeechAnalyzer`, completely free, no data leaves the machine
 - 🧠 **Two engines, one API** — Apple `SpeechAnalyzer` (fastest, zero-dependency) **or** Whisper via WhisperKit (accuracy + 100 languages); both return the same `Transcript`
 - 🔗 **Audio or video** — local files or remote URLs; video audio tracks are extracted automatically
-- 🔴 **Live streaming** — feed microphone or system audio and get interim + final captions in real time
+- 🔴 **Live streaming (both engines)** — Apple `audioInput` + mic, or Whisper live mic (VAD-gated); interim + final captions
+- 🗣️ **Speaker diarization** — optional `Diarizer` product (SpeakerKit / pyannote) labels who spoke when
+- 🌐 **Translate** — Whisper can transcribe-and-translate any language to English in one pass
 - ⏱️ **Timestamped segments** — sentence-level (or word-level) timing for every line
 - 💬 **Subtitle export** — SubRip (`.srt`) and WebVTT (`.vtt`) out of the box
 - 📦 **JSON export** — `snake_case` JSON, great for LLM input or storage
@@ -39,10 +41,11 @@ dependencies: [
 ]
 ```
 
-The package vends **two library products** — depend on whichever engine(s) you need:
+The package vends **three library products** — depend on whichever you need:
 
 - **`SpeechTranscriber`** — the Apple `SpeechAnalyzer` engine. **Zero dependencies.**
 - **`WhisperTranscriber`** — the Whisper engine (pulls in WhisperKit). Returns the same `Transcript` type.
+- **`Diarizer`** — speaker diarization (pulls in SpeakerKit). Labels an existing `Transcript` with who spoke.
 
 ## Usage
 
@@ -93,6 +96,42 @@ func transcribe(_ url: URL, using engine: Engine) async throws -> Transcript {
     case .whisper: return try await WhisperTranscriber.transcribe(audioURL: url, model: .largeV3Turbo)
     }
 }
+```
+
+### Whisper: Live Microphone
+
+Real-time captions from the mic, Whisper-powered (VAD-gated). Same
+`LiveTranscriptionEvent` shape as the Apple engine's live API.
+
+```swift
+for try await event in WhisperTranscriber.transcribeLive(model: .small) {
+    if event.isFinal { transcript += event.text + " " }
+    else { liveCaption = event.text }   // updates as you speak
+}
+```
+
+### Whisper: Translate to English
+
+```swift
+// Any language in → English transcript out, in one pass
+let english = try await WhisperTranscriber.transcribe(audioURL: url, translate: true)
+```
+
+### Speaker Diarization
+
+Label an existing transcript (from **either** engine) with who spoke when.
+
+```swift
+import Diarizer
+
+let transcript = try await SpeechTranscriber.transcribe(audioURL: url)
+let diarized   = try await Diarizer.diarize(transcript, audioURL: url)
+
+print(diarized.speakerCount)   // e.g. 2
+print(diarized.plainText)      // "Speaker 1: …\nSpeaker 2: …"
+
+// Or just the raw turns ("who spoke when")
+let turns = try await Diarizer.diarize(audioURL: url)
 ```
 
 ### From a Remote URL
