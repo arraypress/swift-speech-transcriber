@@ -25,9 +25,16 @@ let package = Package(
             name: "Diarizer",
             targets: ["Diarizer"]
         ),
+        // Parakeet engine (NVIDIA Parakeet via FluidAudio, CoreML/ANE) — fast
+        // offline transcription, same Transcript types, opt-in dependency.
+        .library(
+            name: "ParakeetTranscriber",
+            targets: ["ParakeetTranscriber"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "1.0.0"),
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.9.1"),
     ],
     targets: [
         .target(
@@ -46,6 +53,13 @@ let package = Package(
             dependencies: [
                 "SpeechTranscriber",
                 .product(name: "SpeakerKit", package: "argmax-oss-swift"),
+            ]
+        ),
+        .target(
+            name: "ParakeetTranscriber",
+            dependencies: [
+                "SpeechTranscriber",
+                .product(name: "FluidAudio", package: "FluidAudio"),
             ]
         ),
         .testTarget(

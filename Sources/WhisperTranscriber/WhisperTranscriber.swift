@@ -40,6 +40,9 @@ public enum WhisperTranscriber {
     ///   - model: The Whisper model variant. Default ``WhisperModel/auto``.
     ///   - language: An ISO language code (e.g. `"en"`) to force, or `nil` to
     ///     auto-detect (Whisper's default).
+    ///   - segmentation: How to split recognised text into segments —
+    ///     ``Segmentation/sentence`` (default) or one segment per word with
+    ///     tight timing (``Segmentation/word``), for karaoke-style highlighting.
     ///   - progress: An optional progress callback.
     /// - Throws: ``TranscriptionError``.
     /// - Returns: A ``Transcript`` of timestamped segments.
@@ -48,6 +51,8 @@ public enum WhisperTranscriber {
         model: WhisperModel = .auto,
         language: String? = nil,
         translate: Bool = false,
+        segmentation: Segmentation = .sentence,
+        useNeuralEngine: Bool = true,
         progress: (@Sendable (TranscriptionProgress) -> Void)? = nil
     ) async throws -> Transcript {
 
@@ -66,7 +71,7 @@ public enum WhisperTranscriber {
         }
         defer { if let temporaryURL { try? FileManager.default.removeItem(at: temporaryURL) } }
 
-        return try await WhisperEngine.run(localFile: localURL, model: model, language: language, translate: translate, progress: progress)
+        return try await WhisperEngine.run(localFile: localURL, model: model, language: language, translate: translate, segmentation: segmentation, useNeuralEngine: useNeuralEngine, progress: progress)
     }
 
     /// Transcribes the audio track of a local or remote video with Whisper.
@@ -75,6 +80,9 @@ public enum WhisperTranscriber {
     ///   - videoURL: A local file URL or a remote video URL.
     ///   - model: The Whisper model variant. Default ``WhisperModel/auto``.
     ///   - language: An ISO language code to force, or `nil` to auto-detect.
+    ///   - segmentation: How to split recognised text into segments —
+    ///     ``Segmentation/sentence`` (default) or one segment per word
+    ///     (``Segmentation/word``).
     ///   - progress: An optional progress callback.
     /// - Throws: ``TranscriptionError`` — in particular ``TranscriptionError/noAudioTrack``.
     /// - Returns: A ``Transcript``.
@@ -83,6 +91,8 @@ public enum WhisperTranscriber {
         model: WhisperModel = .auto,
         language: String? = nil,
         translate: Bool = false,
+        segmentation: Segmentation = .sentence,
+        useNeuralEngine: Bool = true,
         progress: (@Sendable (TranscriptionProgress) -> Void)? = nil
     ) async throws -> Transcript {
 
@@ -95,6 +105,6 @@ public enum WhisperTranscriber {
         let audioURL = try await WhisperAudioSource.extractAudio(fromVideo: videoURL)
         defer { try? FileManager.default.removeItem(at: audioURL) }
 
-        return try await WhisperEngine.run(localFile: audioURL, model: model, language: language, translate: translate, progress: progress)
+        return try await WhisperEngine.run(localFile: audioURL, model: model, language: language, translate: translate, segmentation: segmentation, useNeuralEngine: useNeuralEngine, progress: progress)
     }
 }

@@ -35,10 +35,15 @@ public extension WhisperTranscriber {
     /// - Parameters:
     ///   - model: The Whisper model variant. Smaller models keep up better live.
     ///   - language: An ISO language code to force, or `nil` to auto-detect.
+    ///   - onModelProgress: Called with the model download fraction (`0…1`) while
+    ///     the model is fetched on first use. The microphone only starts once the
+    ///     model has finished loading, so surface this to the user — otherwise a
+    ///     large first-time download looks like a hang.
     /// - Returns: A throwing stream of ``LiveTranscriptionEvent`` updates.
     static func transcribeLive(
         model: WhisperModel = .auto,
-        language: String? = nil
+        language: String? = nil,
+        onModelProgress: (@Sendable (Double) -> Void)? = nil
     ) -> AsyncThrowingStream<LiveTranscriptionEvent, Error> {
 
         AsyncThrowingStream { continuation in
@@ -47,7 +52,7 @@ public extension WhisperTranscriber {
 
             let task = Task {
                 do {
-                    let pipe = try await WhisperEngine.loadPipe(model)
+                    let pipe = try await WhisperEngine.loadPipe(model, downloadProgress: onModelProgress)
                     guard let tokenizer = pipe.tokenizer else {
                         throw TranscriptionError.modelInstallationFailed("Tokenizer unavailable after model load.")
                     }
@@ -80,13 +85,22 @@ public extension WhisperTranscriber {
                                 }
                                 confirmedCount.value = confirmed.count
                             }
-                            // Emit the rolling, still-changing text as a volatile event.
-                            let volatile = WhisperText.clean(newState.currentText)
-                            if !volatile.isEmpty {
-                                continuation.yield(LiveTranscriptionEvent(
-                                    text: volatile, isFinal: false, start: nil, end: nil
-                                ))
-                            }
+                            // Emit the still-unconfirmed tail as a volatile event.
+                            //
+                            // We deliberately use `unconfirmedSegments` rather than
+                            // `currentText`: WhisperKit sets `currentText` to the
+                            // placeholder "Waiting for speech..." when idle and
+                            // resets it to "" at the end of every decode cycle, both
+                            // of which make the live caption flicker/clear. The
+                            // unconfirmed segments are the stable rolling tail and
+                            // never contain the placeholder.
+                            let volatile = newState.unconfirmedSegments
+                                .map { WhisperText.clean($0.text) }
+                                .filter { !$0.isEmpty }
+                                .joined(separator: " ")
+                            continuation.yield(LiveTranscriptionEvent(
+                                text: volatile, isFinal: false, start: nil, end: nil
+                            ))
                         }
                     )
                     holder.stream = stream
