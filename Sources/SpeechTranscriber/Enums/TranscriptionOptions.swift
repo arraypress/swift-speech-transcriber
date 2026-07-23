@@ -51,6 +51,24 @@ public struct TranscriptionOptions: Sendable {
     /// Default is ``Segmentation/sentence``.
     public var segmentation: Segmentation
 
+    // MARK: - Vocabulary
+
+    /// Custom vocabulary to bias recognition toward — names, jargon, brand
+    /// names, commands the model would otherwise mis-hear.
+    ///
+    /// This is *contextual biasing*, not a hard constraint: it makes the listed
+    /// terms more likely to be recognised, which especially helps with proper
+    /// nouns and strong accents. Each engine maps it to its own mechanism —
+    /// Apple's `contextualStrings`, Whisper's decoder prompt, Parakeet's
+    /// custom-vocabulary rescorer — so effectiveness varies by engine.
+    ///
+    /// ```swift
+    /// let options = TranscriptionOptions(
+    ///     vocabulary: ["arraypress", "Kokoro", "SwiftUI", "FODMAP"]
+    /// )
+    /// ```
+    public var vocabulary: [String]
+
     // MARK: - Initialisation
 
     /// Creates transcription options with the specified parameters.
@@ -58,12 +76,15 @@ public struct TranscriptionOptions: Sendable {
     /// - Parameters:
     ///   - locale: The transcription locale. Default `en-US`.
     ///   - segmentation: How to split text into segments. Default `.sentence`.
+    ///   - vocabulary: Terms to bias recognition toward. Default empty.
     public init(
         locale: Locale = Locale(identifier: "en-US"),
-        segmentation: Segmentation = .sentence
+        segmentation: Segmentation = .sentence,
+        vocabulary: [String] = []
     ) {
         self.locale = locale
         self.segmentation = segmentation
+        self.vocabulary = vocabulary
     }
 
 }

@@ -13,6 +13,7 @@ Built on Apple's `SpeechAnalyzer` / `SpeechTranscriber` (macOS 26 / iOS 26). Acc
 - 🔴 **Live streaming (both engines)** — Apple `audioInput` + mic, or Whisper live mic (VAD-gated); interim + final captions
 - 🗣️ **Speaker diarization** — optional `Diarizer` product (SpeakerKit / pyannote) labels who spoke when
 - 🌐 **Translate** — Whisper can transcribe-and-translate any language to English in one pass
+- 🔤 **Custom vocabulary** — bias recognition toward names, jargon, and commands the model would otherwise mis-hear (Apple + Whisper); a real help for proper nouns and strong accents
 - ⏱️ **Timestamped segments** — sentence-level (or word-level) timing for every line
 - 💬 **Subtitle export** — SubRip (`.srt`) and WebVTT (`.vtt`) out of the box
 - 📦 **JSON export** — `snake_case` JSON, great for LLM input or storage
@@ -160,10 +161,37 @@ guard SpeechTranscriber.isAvailable else {
 ```swift
 let options = TranscriptionOptions(
     locale: Locale(identifier: "de-DE"),  // any installed speech locale
-    segmentation: .sentence               // .sentence (default) or .word
+    segmentation: .sentence,              // .sentence (default) or .word
+    vocabulary: ["arraypress", "Kokoro"]  // bias toward these terms
 )
 let transcript = try await SpeechTranscriber.transcribe(audioURL: url, options: options)
 ```
+
+### Custom Vocabulary
+
+Give the recognizer a list of terms — names, brand names, jargon, commands — that
+it would otherwise mis-hear. This is *contextual biasing* (making those terms more
+likely), not a hard constraint, and it's especially helpful for proper nouns and
+strong accents.
+
+```swift
+// Apple engine — via TranscriptionOptions
+let options = TranscriptionOptions(vocabulary: ["arraypress", "Kokoro", "SwiftUI", "FODMAP"])
+let transcript = try await SpeechTranscriber.transcribe(audioURL: url, options: options)
+
+// Whisper engine — via the vocabulary parameter
+let transcript = try await WhisperTranscriber.transcribe(
+    audioURL: url,
+    model: .largeV3Turbo,
+    vocabulary: ["arraypress", "Kokoro", "SwiftUI", "FODMAP"]
+)
+```
+
+Each engine maps it to its own mechanism: Apple's `SpeechAnalyzer` **contextual
+strings**, and Whisper's **decoder prompt** (the terms are tokenized and seeded
+into the prompt). Effectiveness varies by engine — Apple's contextual strings are
+a firmer bias; Whisper's prompt is softer but also nudges spelling. (Parakeet does
+not yet support custom vocabulary here.)
 
 ### Live Streaming
 

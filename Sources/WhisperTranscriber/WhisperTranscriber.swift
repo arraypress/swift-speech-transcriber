@@ -51,6 +51,7 @@ public enum WhisperTranscriber {
         model: WhisperModel = .auto,
         language: String? = nil,
         translate: Bool = false,
+        vocabulary: [String] = [],
         segmentation: Segmentation = .sentence,
         useNeuralEngine: Bool = true,
         progress: (@Sendable (TranscriptionProgress) -> Void)? = nil
@@ -71,7 +72,7 @@ public enum WhisperTranscriber {
         }
         defer { if let temporaryURL { try? FileManager.default.removeItem(at: temporaryURL) } }
 
-        return try await WhisperEngine.run(localFile: localURL, model: model, language: language, translate: translate, segmentation: segmentation, useNeuralEngine: useNeuralEngine, progress: progress)
+        return try await WhisperEngine.run(localFile: localURL, model: model, language: language, translate: translate, vocabulary: vocabulary, segmentation: segmentation, useNeuralEngine: useNeuralEngine, progress: progress)
     }
 
     /// Transcribes the audio track of a local or remote video with Whisper.
@@ -91,6 +92,7 @@ public enum WhisperTranscriber {
         model: WhisperModel = .auto,
         language: String? = nil,
         translate: Bool = false,
+        vocabulary: [String] = [],
         segmentation: Segmentation = .sentence,
         useNeuralEngine: Bool = true,
         progress: (@Sendable (TranscriptionProgress) -> Void)? = nil
@@ -105,6 +107,6 @@ public enum WhisperTranscriber {
         let audioURL = try await WhisperAudioSource.extractAudio(fromVideo: videoURL)
         defer { try? FileManager.default.removeItem(at: audioURL) }
 
-        return try await WhisperEngine.run(localFile: audioURL, model: model, language: language, translate: translate, segmentation: segmentation, useNeuralEngine: useNeuralEngine, progress: progress)
+        return try await WhisperEngine.run(localFile: audioURL, model: model, language: language, translate: translate, vocabulary: vocabulary, segmentation: segmentation, useNeuralEngine: useNeuralEngine, progress: progress)
     }
 }

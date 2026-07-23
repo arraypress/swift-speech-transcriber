@@ -38,6 +38,24 @@ final class SpeechTranscriberTests: XCTestCase {
         XCTAssertEqual(TimeCode.clock(-10), "0:00", "Negative values clamp to zero")
     }
 
+    // MARK: - TranscriptionOptions
+
+    func testOptions_vocabularyDefaultsEmpty() {
+        XCTAssertEqual(TranscriptionOptions().vocabulary, [])
+    }
+
+    func testOptions_storesVocabulary() {
+        let options = TranscriptionOptions(vocabulary: ["arraypress", "Kokoro"])
+        XCTAssertEqual(options.vocabulary, ["arraypress", "Kokoro"])
+    }
+
+    func testOptions_defaultsPreservedWithVocabulary() {
+        let options = TranscriptionOptions(segmentation: .word, vocabulary: ["FODMAP"])
+        XCTAssertEqual(options.locale.identifier(.bcp47), "en-US")
+        if case .word = options.segmentation {} else { XCTFail("expected .word segmentation") }
+        XCTAssertEqual(options.vocabulary, ["FODMAP"])
+    }
+
     func testSRTTimestampFormatting() {
         XCTAssertEqual(TimeCode.srt(0), "00:00:00,000")
         XCTAssertEqual(TimeCode.srt(2.5), "00:00:02,500")

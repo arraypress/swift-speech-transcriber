@@ -70,6 +70,7 @@ enum WhisperEngine {
         model: WhisperModel,
         language: String?,
         translate: Bool,
+        vocabulary: [String] = [],
         segmentation: Segmentation = .sentence,
         useNeuralEngine: Bool = true,
         progress: (@Sendable (EngineProgress) -> Void)?
@@ -98,6 +99,12 @@ enum WhisperEngine {
             options.language = language
             if translate { options.task = .translate }
             options.wordTimestamps = segmentation == .word
+            // Bias the decoder toward custom vocabulary by seeding the prompt.
+            if !vocabulary.isEmpty, let tokenizer = pipe.tokenizer {
+                let prompt = "Glossary: " + vocabulary.joined(separator: ", ") + "."
+                options.promptTokens = tokenizer.encode(text: prompt)
+                options.usePrefillPrompt = true
+            }
             results = try await pipe.transcribe(audioPath: url.path, decodeOptions: options)
         } catch {
             throw TranscriptionError.transcriptionFailed(error.localizedDescription)

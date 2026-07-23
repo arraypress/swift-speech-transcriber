@@ -51,6 +51,7 @@ public extension SpeechTranscriber {
                         progress: nil
                     )
                     let analyzer = SpeechAnalyzer(modules: [transcriber])
+                    try await applyVocabulary(options.vocabulary, to: analyzer)
 
                     let (inputSequence, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
                     try await analyzer.start(inputSequence: inputSequence)

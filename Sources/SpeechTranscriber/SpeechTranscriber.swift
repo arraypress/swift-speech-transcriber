@@ -202,6 +202,7 @@ public enum SpeechTranscriber {
         // MARK: Load Audio
 
         let analyzer = SpeechAnalyzer(modules: [transcriber])
+        try await applyVocabulary(options.vocabulary, to: analyzer)
 
         let audioFile: AVAudioFile
         do {
@@ -313,6 +314,15 @@ public enum SpeechTranscriber {
         }
 
         return transcriber
+    }
+
+    /// Bias the analyzer toward `vocabulary` via the Speech framework's
+    /// contextual strings. A no-op when the vocabulary is empty.
+    static func applyVocabulary(_ vocabulary: [String], to analyzer: SpeechAnalyzer) async throws {
+        guard !vocabulary.isEmpty else { return }
+        let context = AnalysisContext()
+        context.contextualStrings = [.general: vocabulary]
+        try await analyzer.setContext(context)
     }
 
     /// Splits one recognition result into timestamped segments and appends them.
