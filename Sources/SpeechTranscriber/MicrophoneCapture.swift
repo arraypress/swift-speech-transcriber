@@ -29,6 +29,13 @@ public final class MicrophoneCapture {
 
     private let engine = AVAudioEngine()
     private let bufferSize: AVAudioFrameCount
+    /// Held so ``stop()`` can END the stream, not merely silence it.
+    ///
+    /// Stopping the audio engine alone leaves the `AsyncStream` open forever: a transcriber
+    /// awaiting it never sees the input finish, so it never emits its trailing final result. For
+    /// push-to-talk — where the whole utterance is short and the last words matter — that reads
+    /// as "nothing was heard".
+    private var continuation: AsyncStream<AudioInput>.Continuation?
 
     /// Creates a microphone capture source.
     ///
@@ -48,6 +55,7 @@ public final class MicrophoneCapture {
         let format = input.outputFormat(forBus: 0)
 
         return AsyncStream { continuation in
+            self.continuation = continuation
             input.removeTap(onBus: 0)
             input.installTap(onBus: 0, bufferSize: bufferSize, format: format) { buffer, _ in
                 continuation.yield(AudioInput(buffer))
@@ -68,9 +76,14 @@ public final class MicrophoneCapture {
         }
     }
 
-    /// Stops capturing and tears down the audio tap.
+    /// Stops capturing, tears down the audio tap, and finishes the stream.
+    ///
+    /// Finishing matters: a consumer awaiting the audio needs the input to END before it can
+    /// flush its last result. Without it a short utterance is silently dropped.
     public func stop() {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
+        continuation?.finish()
+        continuation = nil
     }
 }
