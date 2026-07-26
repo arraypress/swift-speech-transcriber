@@ -13,6 +13,38 @@ import Foundation
 import SpeechTranscriber
 import WhisperKit
 
+/// Holds the most recently loaded pipeline so repeat transcriptions don't reload it.
+///
+/// A lock rather than an actor: `WhisperKit` is not `Sendable`, so an actor could not hand it back
+/// out. The lock covers the cache's own state; the pipeline itself is used by one transcription at
+/// a time, which is how both the file and live entry points drive it.
+private final class PipeCache: @unchecked Sendable {
+
+    struct Key: Equatable {
+        let model: String
+        let useNeuralEngine: Bool
+    }
+
+    static let shared = PipeCache()
+
+    private let lock = NSLock()
+    private var key: Key?
+    private var cached: WhisperKit?
+
+    func pipe(for key: Key) -> WhisperKit? {
+        lock.lock()
+        defer { lock.unlock() }
+        return self.key == key ? cached : nil
+    }
+
+    func store(_ pipe: WhisperKit, for key: Key) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.key = key
+        cached = pipe
+    }
+}
+
 /// Runs WhisperKit against a local audio file and maps the result into a
 /// shared ``Transcript``.
 enum WhisperEngine {
@@ -27,6 +59,26 @@ enum WhisperEngine {
     /// - Parameter downloadProgress: Called with the download fraction (`0…1`).
     ///   Not invoked for ``WhisperModel/auto`` (which resolves and downloads
     ///   internally).
+    /// Loads a pipeline, reusing the last one if it matches.
+    ///
+    /// Loading is expensive — tens of seconds for the larger models, and minutes the first time
+    /// the Neural Engine specializes one. Live/push-to-talk callers start a fresh stream for every
+    /// utterance, so without this each one would pay that cost again and the feature simply
+    /// wouldn't work. Only the most recent pipeline is held: callers keep to one model at a time,
+    /// and these are hundreds of megabytes resident.
+    static func cachedPipe(
+        _ model: WhisperModel,
+        useNeuralEngine: Bool = true,
+        downloadProgress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> WhisperKit {
+        let key = PipeCache.Key(model: model.modelName ?? "auto", useNeuralEngine: useNeuralEngine)
+        if let pipe = PipeCache.shared.pipe(for: key) { return pipe }
+        let pipe = try await loadPipe(model, useNeuralEngine: useNeuralEngine,
+                                      downloadProgress: downloadProgress)
+        PipeCache.shared.store(pipe, for: key)
+        return pipe
+    }
+
     static func loadPipe(
         _ model: WhisperModel,
         useNeuralEngine: Bool = true,
@@ -79,7 +131,7 @@ enum WhisperEngine {
         // MARK: Load Model (downloads on first use)
 
         progress?(EngineProgress(phase: .installingModel, fraction: 0))
-        let pipe = try await loadPipe(model, useNeuralEngine: useNeuralEngine, downloadProgress: { fraction in
+        let pipe = try await cachedPipe(model, useNeuralEngine: useNeuralEngine, downloadProgress: { fraction in
             progress?(EngineProgress(phase: .installingModel, fraction: fraction))
         })
 

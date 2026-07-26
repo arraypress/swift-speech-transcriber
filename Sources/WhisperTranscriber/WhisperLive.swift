@@ -35,14 +35,24 @@ public extension WhisperTranscriber {
     /// - Parameters:
     ///   - model: The Whisper model variant. Smaller models keep up better live.
     ///   - language: An ISO language code to force, or `nil` to auto-detect.
+    ///   - useNeuralEngine: Whether to run on the Neural Engine. `false` by default here, unlike
+    ///     file transcription: the ANE compiler specializes the model per app on first load, which
+    ///     takes **minutes**, and live transcription is by definition interactive — nobody holding
+    ///     a push-to-talk key can wait that out. CPU+GPU loads far faster at somewhat slower
+    ///     inference, which is the right trade when the audio is arriving in real time anyway.
     ///   - onModelProgress: Called with the model download fraction (`0…1`) while
     ///     the model is fetched on first use. The microphone only starts once the
     ///     model has finished loading, so surface this to the user — otherwise a
     ///     large first-time download looks like a hang.
     /// - Returns: A throwing stream of ``LiveTranscriptionEvent`` updates.
+    ///
+    /// - Note: Call ``warmUp(model:useNeuralEngine:)`` ahead of time for push-to-talk. Even
+    ///   cached, the first load of a large model takes tens of seconds, and a short hold cannot
+    ///   absorb that.
     static func transcribeLive(
         model: WhisperModel = .auto,
         language: String? = nil,
+        useNeuralEngine: Bool = false,
         onModelProgress: (@Sendable (Double) -> Void)? = nil
     ) -> AsyncThrowingStream<LiveTranscriptionEvent, Error> {
 
@@ -52,7 +62,8 @@ public extension WhisperTranscriber {
 
             let task = Task {
                 do {
-                    let pipe = try await WhisperEngine.loadPipe(model, downloadProgress: onModelProgress)
+                    let pipe = try await WhisperEngine.cachedPipe(
+                        model, useNeuralEngine: useNeuralEngine, downloadProgress: onModelProgress)
                     guard let tokenizer = pipe.tokenizer else {
                         throw TranscriptionError.modelInstallationFailed("Tokenizer unavailable after model load.")
                     }
@@ -118,6 +129,38 @@ public extension WhisperTranscriber {
                 Task { await stream?.stopStreamTranscription() }
             }
         }
+    }
+}
+
+public extension WhisperTranscriber {
+
+    /// Loads and caches a model's pipeline so the next transcription starts immediately.
+    ///
+    /// **Push-to-talk needs this.** Downloading is not the slow part once a model is cached —
+    /// *loading* it is, at roughly 15–20 seconds per process even for the smallest model, because
+    /// the cost is mostly fixed rather than proportional to model size. A hold-to-talk gesture
+    /// lasts a second or two, so the load has to have happened already. Call this in the
+    /// background when your feature is enabled, not when the key goes down.
+    ///
+    /// The loaded pipeline is retained (hundreds of megabytes) until a different model is used.
+    ///
+    /// ```swift
+    /// Task.detached { try? await WhisperTranscriber.warmUp(model: .largeV3Turbo) }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - model: The model to load.
+    ///   - useNeuralEngine: Match whatever the subsequent call uses, or the cache misses and the
+    ///     load happens again. Defaults to `false`, matching ``transcribeLive(model:language:useNeuralEngine:onModelProgress:)``.
+    ///   - progress: An optional download-progress callback (0–1), for the first-run fetch.
+    /// - Throws: ``TranscriptionError/modelInstallationFailed(_:)`` on failure.
+    static func warmUp(
+        model: WhisperModel = .auto,
+        useNeuralEngine: Bool = false,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws {
+        _ = try await WhisperEngine.cachedPipe(model, useNeuralEngine: useNeuralEngine,
+                                               downloadProgress: progress)
     }
 }
 
