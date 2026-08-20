@@ -42,6 +42,24 @@ public enum WhisperModel: Sendable {
     /// Large v3 Turbo — near large-v3 accuracy, much faster. Recommended on Mac.
     case largeV3Turbo
 
+    /// Any other model in the WhisperKit repo, named directly.
+    ///
+    /// The named cases above are the ones worth putting in a picker; this is
+    /// for everything else the repo carries — distilled builds, other
+    /// quantizations, and community fine-tunes.
+    ///
+    /// The reason it exists is accents. The small models degrade sharply on
+    /// regional speech, and the right answer is sometimes a specific fine-tune
+    /// rather than simply a bigger model — which is a choice only the person
+    /// being transcribed can make.
+    ///
+    /// The value is a glob matched against the repo, exactly as ``modelName``
+    /// returns for the built-in cases, so `"large-v3"` and
+    /// `"distil-large-v3"` are both valid. An unmatched name fails at load
+    /// with WhisperKit's own error rather than silently falling back, so a
+    /// typo is visible instead of quietly costing accuracy.
+    case custom(String)
+
     /// The WhisperKit model identifier (a glob matched against the model repo),
     /// or `nil` to let WhisperKit choose.
     var modelName: String? {
@@ -54,10 +72,15 @@ public enum WhisperModel: Sendable {
         case .largeV3: return "large-v3"
         // The 632 MB quantized turbo: near-large-v3 accuracy at ~⅕ the size.
         case .largeV3Turbo: return "large-v3-v20240930_turbo_632MB"
+        case .custom(let name): return name
         }
     }
 
-    /// All selectable models (excluding ``auto``), for a settings picker.
+    /// All selectable models, for a settings picker.
+    ///
+    /// Excludes ``auto`` and ``custom(_:)`` — neither is a thing to pick from
+    /// a list. A picker offering "custom" without somewhere to type the name
+    /// is a dead end.
     public static var all: [WhisperModel] {
         [.tiny, .base, .small, .medium, .largeV3Turbo, .largeV3]
     }
@@ -72,6 +95,7 @@ public enum WhisperModel: Sendable {
         case .medium: return "Medium"
         case .largeV3: return "Large v3"
         case .largeV3Turbo: return "Large v3 Turbo"
+        case .custom(let name): return name
         }
     }
 
@@ -87,6 +111,9 @@ public enum WhisperModel: Sendable {
         case .medium: return 1_530
         case .largeV3Turbo: return 646
         case .largeV3: return 3_090
+        // Unknowable without asking the repo, and a wrong figure next to a
+        // download button is worse than none.
+        case .custom: return nil
         }
     }
 }

@@ -86,6 +86,19 @@ print(transcript.plainText)
 let srt = transcript.srt    // same export helpers as the Apple engine
 ```
 
+Any other model in the repo can be named directly — distilled builds, other
+quantizations, community fine-tunes:
+
+```swift
+model: .custom("distil-large-v3")
+```
+
+Worth knowing if you transcribe strong regional accents: the smaller models
+degrade sharply on them, and the fix is sometimes a specific fine-tune rather
+than simply a bigger model. The name is a glob matched against the repo, and an
+unmatched one fails at load rather than quietly falling back — so a typo shows
+up instead of costing you accuracy.
+
 A typical settings-driven dispatch:
 
 ```swift
