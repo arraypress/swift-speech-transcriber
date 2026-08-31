@@ -119,13 +119,7 @@ public struct Transcript: Sendable {
     /// Welcome to the show
     /// ```
     public var srt: String {
-        segments.enumerated().map { index, segment in
-            """
-            \(index + 1)
-            \(TimeCode.srt(segment.start)) --> \(TimeCode.srt(segment.end))
-            \(segment.text)
-            """
-        }.joined(separator: "\n\n")
+        SubtitleExport.srt(segments)
     }
 
     /// The transcript as a WebVTT (`.vtt`) subtitle document.
@@ -137,14 +131,7 @@ public struct Transcript: Sendable {
     /// Hello everyone
     /// ```
     public var vtt: String {
-        let cues = segments.map { segment in
-            """
-            \(TimeCode.vtt(segment.start)) --> \(TimeCode.vtt(segment.end))
-            \(segment.text)
-            """
-        }.joined(separator: "\n\n")
-
-        return cues.isEmpty ? "WEBVTT\n" : "WEBVTT\n\n\(cues)"
+        SubtitleExport.vtt(segments)
     }
 
     // MARK: - JSON Export

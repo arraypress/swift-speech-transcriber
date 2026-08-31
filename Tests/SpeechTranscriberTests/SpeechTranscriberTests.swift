@@ -508,4 +508,33 @@ final class SpeechTranscriberTests: XCTestCase {
 
     private struct TimedOut: Error {}
 
+    // MARK: - Subtitle assembly
+
+    func testSubtitleAssemblyDirectly() {
+        // The document rules pinned with no Transcript in sight.
+        let segments = [
+            TranscriptSegment(id: 1, text: "Hello", start: 0, end: 2.5),
+            TranscriptSegment(id: 2, text: "World", start: 2.5, end: 5),
+        ]
+        XCTAssertEqual(SubtitleExport.srt(segments), """
+        1
+        00:00:00,000 --> 00:00:02,500
+        Hello
+
+        2
+        00:00:02,500 --> 00:00:05,000
+        World
+        """)
+        XCTAssertEqual(SubtitleExport.vtt(segments), """
+        WEBVTT
+
+        00:00:00.000 --> 00:00:02.500
+        Hello
+
+        00:00:02.500 --> 00:00:05.000
+        World
+        """)
+        XCTAssertEqual(SubtitleExport.srt([]), "", "SRT has no header to stand alone")
+        XCTAssertEqual(SubtitleExport.vtt([]), "WEBVTT\n", "no cues is still a valid VTT document")
+    }
 }
