@@ -30,6 +30,43 @@ final class SpeechTranscriberTests: XCTestCase {
 
     // MARK: - TimeCode
 
+    // MARK: Empty audio
+
+    /// Writes a WAV whose header declares zero frames — the shape a truncated
+    /// download or an unfinalised writer produces.
+    private func emptyWAV() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("empty-\(UUID().uuidString).wav")
+        let format = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 22_050,
+                                   channels: 1, interleaved: true)!
+        _ = try AVAudioFile(forWriting: url, settings: format.settings)
+        return url
+    }
+
+    func testAZeroLengthFileIsRefusedRatherThanTranscribed() async throws {
+        // The bug this replaces was not a wrong answer, it was a HANG:
+        // SpeechAnalyzer accepts a zero-length file, produces no results, and
+        // never closes its result stream, so the consumer waits forever with
+        // nothing printed. Ten minutes on a file that opens fine.
+        let url = try emptyWAV()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        do {
+            _ = try await SpeechTranscriber.transcribe(audioURL: url)
+            XCTFail("expected a refusal, not a transcript")
+        } catch let error as TranscriptionError {
+            guard case .emptyAudio = error else {
+                return XCTFail("expected .emptyAudio, got \(error)")
+            }
+        }
+    }
+
+    func testTheEmptyAudioMessageNamesTheFileAndTheLikelyCause() {
+        let message = TranscriptionError.emptyAudio("meeting.wav").errorDescription ?? ""
+        XCTAssertTrue(message.contains("meeting.wav"), message)
+        XCTAssertTrue(message.contains("truncated"), message)
+    }
+
     func testClockFormatting() {
         XCTAssertEqual(TimeCode.clock(0), "0:00")
         XCTAssertEqual(TimeCode.clock(5), "0:05")

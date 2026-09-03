@@ -216,6 +216,16 @@ public enum SpeechTranscriber {
             ? Double(audioFile.length) / format.sampleRate
             : 0
 
+        // Refused here rather than handed to the analyzer. A zero-length file
+        // is ACCEPTED by SpeechAnalyzer, yields no results, and never closes
+        // its result stream — so the `for try await` below waits forever and
+        // prints nothing. Measured against a WAV whose header said 0 bytes:
+        // it ran for over ten minutes before this guard existed. A truncated
+        // download or an interrupted recording arrives looking the same.
+        guard audioFile.length > 0, duration > 0 else {
+            throw TranscriptionError.emptyAudio(audioFile.url.lastPathComponent)
+        }
+
         // MARK: Transcribe
 
         progress?(TranscriptionProgress(phase: .transcribing, fraction: 0))

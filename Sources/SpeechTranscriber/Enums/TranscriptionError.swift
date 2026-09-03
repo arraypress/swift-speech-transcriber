@@ -49,6 +49,16 @@ public enum TranscriptionError: Error, LocalizedError, Equatable, Sendable {
     /// The associated string contains a description of the underlying failure.
     case audioLoadFailed(String)
 
+    /// The file opened, but declares no audio at all.
+    ///
+    /// Its own case because the failure it prevents is not an error message —
+    /// it is a HANG. `SpeechAnalyzer` accepts a zero-length file, produces no
+    /// results, and never finishes its result stream, so the `for try await`
+    /// consuming it waits forever with nothing printed. A truncated download,
+    /// an interrupted recording, or a WAV whose header was never finalised all
+    /// arrive looking exactly like this.
+    case emptyAudio(String)
+
     /// The provided video contains no audio track to transcribe.
     case noAudioTrack
 
@@ -84,6 +94,9 @@ public enum TranscriptionError: Error, LocalizedError, Equatable, Sendable {
             return "The audio file could not be found."
         case .audioLoadFailed(let message):
             return "The audio could not be loaded: \(message)"
+        case .emptyAudio(let name):
+            return "No audio in \(name): the file opens but declares zero frames. "
+                + "Check it finished writing, or that the recording is not truncated." 
         case .noAudioTrack:
             return "The video contains no audio track."
         case .downloadFailed(let message):
