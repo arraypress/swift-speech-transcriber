@@ -8,6 +8,7 @@
 import XCTest
 import os
 import AVFoundation
+import SubtitleKit
 @testable import SpeechTranscriber
 
 final class SpeechTranscriberTests: XCTestCase {
@@ -93,18 +94,22 @@ final class SpeechTranscriberTests: XCTestCase {
         XCTAssertEqual(options.vocabulary, ["FODMAP"])
     }
 
+    /// Subtitle timestamps moved to swift-subtitle-kit, which owns the
+    /// format rules for the whole fleet. The assertions stay here as well:
+    /// this library's output is what they were written to protect, and a
+    /// change upstream should fail on this side too.
     func testSRTTimestampFormatting() {
-        XCTAssertEqual(TimeCode.srt(0), "00:00:00,000")
-        XCTAssertEqual(TimeCode.srt(2.5), "00:00:02,500")
-        XCTAssertEqual(TimeCode.srt(83.25), "00:01:23,250")
-        XCTAssertEqual(TimeCode.srt(3661.001), "01:01:01,001")
-        XCTAssertEqual(TimeCode.srt(-5), "00:00:00,000")
+        XCTAssertEqual(SubtitleKit.TimeCode.string(0, format: .srt), "00:00:00,000")
+        XCTAssertEqual(SubtitleKit.TimeCode.string(2.5, format: .srt), "00:00:02,500")
+        XCTAssertEqual(SubtitleKit.TimeCode.string(83.25, format: .srt), "00:01:23,250")
+        XCTAssertEqual(SubtitleKit.TimeCode.string(3661.001, format: .srt), "01:01:01,001")
+        XCTAssertEqual(SubtitleKit.TimeCode.string(-5, format: .srt), "00:00:00,000")
     }
 
     func testVTTTimestampFormatting() {
-        XCTAssertEqual(TimeCode.vtt(0), "00:00:00.000")
-        XCTAssertEqual(TimeCode.vtt(2.5), "00:00:02.500")
-        XCTAssertEqual(TimeCode.vtt(83.25), "00:01:23.250")
+        XCTAssertEqual(SubtitleKit.TimeCode.string(0, format: .vtt), "00:00:00.000")
+        XCTAssertEqual(SubtitleKit.TimeCode.string(2.5, format: .vtt), "00:00:02.500")
+        XCTAssertEqual(SubtitleKit.TimeCode.string(83.25, format: .vtt), "00:01:23.250")
     }
 
     // MARK: - TranscriptSegment

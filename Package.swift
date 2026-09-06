@@ -33,13 +33,14 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(url: "https://github.com/arraypress/swift-subtitle-kit.git", from: "0.1.0"),
         .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "1.0.0"),
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.9.1"),
     ],
     targets: [
         .target(
             name: "SpeechTranscriber",
-            dependencies: []
+            dependencies: [.product(name: "SubtitleKit", package: "swift-subtitle-kit")]
         ),
         .target(
             name: "WhisperTranscriber",

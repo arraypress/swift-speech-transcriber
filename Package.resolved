@@ -1,5 +1,5 @@
 {
-  "originHash" : "ab9be23a62a6044fad8c20c7374112c0e7a02c371d9660423fdfb00bbd837939",
+  "originHash" : "df5d1fd3309f37d0ebd22d847e4dabc26cd68012a6b121b6bc374e432f6a52af",
   "pins" : [
     {
       "identity" : "argmax-oss-swift",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
         "version" : "1.8.2"
+      }
+    },
+    {
+      "identity" : "swift-subtitle-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/arraypress/swift-subtitle-kit.git",
+      "state" : {
+        "revision" : "68a355c9baa3ca36ee55e028dbd4bd3106ecaa18",
+        "version" : "0.1.0"
       }
     }
   ],
