@@ -9,6 +9,7 @@
 //  `TranscriptionProgress`.
 
 @preconcurrency import AVFoundation
+import CoreML
 import Foundation
 import SpeechTranscriber
 import WhisperKit
