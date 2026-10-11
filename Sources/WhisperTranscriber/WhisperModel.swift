@@ -19,7 +19,7 @@ import Foundation
 /// // Let WhisperKit choose based on the device
 /// try await WhisperTranscriber.transcribe(audioURL: url, model: .auto)
 /// ```
-public enum WhisperModel: Sendable {
+public enum WhisperModel: Hashable, Sendable {
 
     /// Let WhisperKit select the recommended model for this device.
     case auto
